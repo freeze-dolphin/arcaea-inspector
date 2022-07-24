@@ -1,0 +1,4 @@
+low_resolution_mode: true
+vsync: false
+fps_limit: -1
+fullscreen: false

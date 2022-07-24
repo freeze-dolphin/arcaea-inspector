@@ -1,0 +1,27 @@
+name: arcaea-inspector
+version: 0.1.0
+
+authors:
+  - Freeze Dolphin <freeze-dolphin@outlook.com>
+
+dependencies:
+  crsfml:
+    github: oprypin/crsfml
+    version: ~> 2.5.2
+  totem:
+    github: icyleaf/totem
+  poncho:
+    github: icyleaf/poncho
+
+development_dependencies:
+  ameba:
+    github: crystal-ameba/ameba
+    version: ~> 1.0.0
+
+targets:
+  arcaea-inspector:
+    main: src/arcaea_inspector.cr
+
+crystal: 1.5.0
+
+license: GPL-3
