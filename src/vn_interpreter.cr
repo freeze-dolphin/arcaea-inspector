@@ -1,28 +1,7 @@
 require "crsfml"
+require "crsfml/audio"
 
 module VNInterp
-  def get_texture(path : String)
-    if !File.exists? path
-      raise NotFoundError.new "Cannot found texture file: #{path}"
-    else
-      return SF::Texture.from_file path
-    end
-  end
-
-  def get_sound(path : String)
-    if !File.exists? path
-      raise NotFoundError.new "Cannot found sound file: #{path}"
-    else
-      return SF::SoundBuffer.from_file path
-    end
-  end
-
-  def play_sound(path : String)
-    sound = SF::Sound.new
-    sound.buffer = get_sound path
-    sound.play
-  end
-
   enum VNInterp::SuperPosition
     Normal
     Overlay
@@ -52,11 +31,34 @@ module VNInterp
   class VNInterp::Interpreter
     def initialize(window : SF::RenderWindow)
       @@window = window
+      @@sound_registry = Hash(String, SF::Sound).new
+      @@img_registry = Hash(String, SF::Sprite).new
+      @@debug = ArcaeaInspector::DEBUG
     end
 
-    def play(audio : String,
+    def play(res : String, audio : String,
              volume : Float64,
              loop? : Bool = false)
+      if loop?
+        @@sound_registry.not_nil!.each do |k, v|
+          if v.loop
+            stop(k, 0)
+          end
+        end
+      end
+      spawn do
+        buffer = SF::SoundBuffer.from_file(res + File::SEPARATOR_STRING + audio)
+        sound = SF::Sound.new buffer
+        sound.volume = volume * 100
+        sound.loop = loop?
+        sound.play
+        @@sound_registry.not_nil![audio] = sound
+        puts "playing #{audio}; registry: #{@@sound_registry}" if @@debug
+
+        loop do
+          sound.finalize if sound.status == SF::SoundSource::Status::Stopped
+        end
+      end
     end
 
     def volume(audio : String,
@@ -67,10 +69,13 @@ module VNInterp
              duration : Float64)
     end
 
-    def say(content : String)
+    def say(content : Array(String))
+      content.each do |t|
+        puts t
+      end
     end
 
-    def show(pic : String,
+    def show(res : String, pic : String,
              posX : Float64, poxY : Float64,
              anchorX : Float64, anchorY : Float64,
              scaleX : Float64, scaleY : Float64,
@@ -97,7 +102,8 @@ module VNInterp
     def auto(duration : Float64)
     end
 
-    def self.wait(duration : Float64)
+    def wait(duration : Float64)
+      SF.sleep SF.seconds duration
     end
   end
 end

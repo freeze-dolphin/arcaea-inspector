@@ -7,7 +7,6 @@ authors:
 dependencies:
   crsfml:
     github: oprypin/crsfml
-    version: ~> 2.5.2
   totem:
     github: icyleaf/totem
   poncho:

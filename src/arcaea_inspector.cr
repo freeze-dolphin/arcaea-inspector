@@ -1,11 +1,12 @@
 require "crsfml"
+require "crsfml/system"
 require "option_parser"
 require "totem"
 require "./vn_interpreter"
 
-DEBUG = true
-
 module ArcaeaInspector
+  DEBUG = true
+  @@waiting_for_next = false
   lowp_mode = false
   vsync = false
   fps_limit = -1
@@ -91,6 +92,8 @@ module ArcaeaInspector
 
   window = SF::RenderWindow.new(SF::VideoMode.new(width, height), "Arcaea Inspector", style)
 
+  window.active = false
+
   if fps_limit > 0
     window.framerate_limit = fps_limit
   end
@@ -99,39 +102,75 @@ module ArcaeaInspector
     window.vertical_sync_enabled = true
   end
 
-  int = VNInterp::Interpreter.new window
+  spawn do
+    int = VNInterp::Interpreter.new window
+    commands = ["play", "say", "wait", "auto", "move", "hide", "show", "stop", "volume", "end"]
+    splited = (File.read target).split(/(\n| )/, remove_empty: true)
+    splited << "end"
+    splited.reject! { |x| x == "\n" || x == " " }
+    i = 0
+    channel = Channel(Nil).new
 
-  commands = ["play", "say", "wait", "auto", "move", "hide", "show", "stop", "volume", "end"]
-  splited = (File.read target).split(/(\n| )/, remove_empty: true)
-  splited << "end"
-  splited.reject! { |x| x == "\n" || x == " " }
-  i = 0
-  while i < splited.size
-    if splited[i] == "play"
-      args = [] of String
-      j = i + 1
-      while !(commands.includes? splited[j])
-        t = splited[j]
-        if t[0, 1] == "\"" && t[-1, t.size - 1] == "\""
-          t = t[1, t.size - 2]
+    while i < splited.size
+      if splited[i] == "play"
+        args = [] of String
+        j = i + 1
+        while !(commands.includes? splited[j])
+          t = splited[j]
+          if t[0, 1] == "\"" && t[-1, t.size - 1] == "\""
+            t = t[1, t.size - 2]
+          end
+          args << t
+          j += 1
         end
-        args << t
-        j += 1
-      end
 
-      int.play(
-        res + File::SEPARATOR_STRING + args[0],
-        args[1].unsafe_as(Float64),
-        args.size < 3 ? false : true)
+        int.play(
+          res,
+          args[0],
+          args[1].unsafe_as(Float64),
+          args.size < 3 ? false : true)
+      elsif splited[i] == "say"
+        args = [] of String
+        j = i + 1
+        while !(commands.includes? splited[j])
+          t = splited[j]
+          if t[0, 1] == "\"" || t[-1, t.size - 1] == "\""
+            t = t[1, t.size - 2]
+          end
+          args << t
+          j += 1
+        end
+
+        loop do
+          break if !@@waiting_for_next
+        end
+        int.say(args)
+        @@waiting_for_next = true
+      end
+      i += 1
     end
-    i += 1
   end
 
-  while window.open?
-    while event = window.poll_event
-      if event.is_a? SF::Event::Closed
-        window.close
+  SF::Thread.new(->{
+    font = SF::Font.from_file "resources/NotoSansCJKsc-Light.otf"
+    txt = SF::Text.new "", font
+    x, y = txt.global_bounds.width, txt.global_bounds.height
+    ctr = (SF.vector2f x, y) / 2
+    lb = txt.local_bounds
+    lbv = SF.vector2f lb.left, lb.top
+    # rounded = lb.round
+
+    while window.open?
+      while event = window.poll_event
+        case event
+        when SF::Event::Closed
+          window.close
+        when SF::Event::KeyReleased
+          if event.code == SF::Keyboard::Space && @@waiting_for_next
+            @@waiting_for_next = false
+          end
+        end
       end
     end
-  end
+  }).launch
 end
