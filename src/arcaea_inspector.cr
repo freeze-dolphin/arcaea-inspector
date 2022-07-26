@@ -232,6 +232,8 @@ module ArcaeaInspector
         when SF::Event::KeyReleased
           if event.code == SF::Keyboard::Space && @@waiting_for_next
             @@waiting_for_next = false
+          elsif event.code == SF::Keyboard::T
+            puts "T" if DEBUG
           end
         end
       end
