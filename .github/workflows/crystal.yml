@@ -2,25 +2,24 @@ name: Crystal CI
 
 on:
   push:
-    branches: [ "master" ]
+    branches: ["master"]
   pull_request:
-    branches: [ "master" ]
+    branches: ["master"]
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     container:
       image: crystallang/crystal
 
     steps:
-    - uses: actions/checkout@v3
-    - name: Install packages
-      run: apt install libsfml-dev --install-recommends -y
-    - name: Install dependencies
-      run: shards install
-    - name: Code evaluation
-      run: bin/ameba
-    - name: Run tests
-      run: crystal spec
+      - uses: actions/checkout@v3
+      - name: Install packages
+        run: apt update && apt install libsfml-dev --install-recommends -y
+      - name: Install dependencies
+        run: shards install
+      - name: Code evaluation
+        run: bin/ameba
+      - name: Run tests
+        run: crystal spec
