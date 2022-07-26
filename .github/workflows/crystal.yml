@@ -20,5 +20,7 @@ jobs:
       run: apt install libsfml-dev --install-recommends -y
     - name: Install dependencies
       run: shards install
+    - name: Code evaluation
+      run: bin/ameba
     - name: Run tests
       run: crystal spec
