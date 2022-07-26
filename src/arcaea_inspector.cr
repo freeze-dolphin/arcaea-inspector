@@ -88,20 +88,6 @@ module ArcaeaInspector
     @@height = 720
   end
 
-  # window preparation end
-
-  @@window = SF::RenderWindow.new(SF::VideoMode.new(@@width, @@height), "Arcaea Inspector", @@style)
-
-  @@window.active = false
-
-  if @@fps_limit > 0
-    @@window.framerate_limit = @@fps_limit
-  end
-
-  if @@vsync
-    @@window.vertical_sync_enabled = true
-  end
-
   def ArcaeaInspector.slice_off_quote(s : String)
     head = s[0, 1]
     tail = s[s.size - 1, s.size]
@@ -112,20 +98,19 @@ module ArcaeaInspector
     if tail == "\""
       rst = rst[0, rst.size - 1]
     end
-    rst
+    rst.gsub "\\\"", "\""
   end
 
   spawn do
     int = VNInterp::Interpreter.new @@window
     commands = ["play", "say", "wait", "auto", "move", "hide", "show", "stop", "volume", "end"]
     splited = (File.read target).split(/(\n| )/, remove_empty: true)
-    puts "before: #{splited}" if DEBUG
+    # puts "before: #{splited}" if DEBUG
     splited << "end"
-    puts "after: #{splited}" if DEBUG
+    # puts "after: #{splited}" if DEBUG
     splited.reject! { |x| x == "\n" || x == " " }
-    puts "ultimate: #{splited}" if DEBUG
+    # puts "ultimate: #{splited}" if DEBUG
     i = 0
-    channel = Channel(Nil).new
 
     while i < splited.size
       case cmd = splited[i]
@@ -141,7 +126,7 @@ module ArcaeaInspector
         int.play(
           res,
           args[0],
-          args[1].unsafe_as(Float64),
+          args[1].to_f32,
           args.size < 3 ? false : true)
       when "say"
         puts cmd if DEBUG
@@ -151,27 +136,52 @@ module ArcaeaInspector
           args << slice_off_quote splited[j]
           j += 1
         end
-        puts args if DEBUG
 
         loop do
           break if !@@waiting_for_next
         end
         int.say(args)
+      when "wait"
+        puts cmd if DEBUG
+        args = [] of String
+        j = i + 1
+        while !(commands.includes? splited[j])
+          args << slice_off_quote splited[j]
+          j += 1
+        end
+
+        int.wait(args[0].to_f32)
       when "end"
         puts cmd if DEBUG
         loop do
-          exit if !@@waiting_for_next
+          if !@@waiting_for_next
+            @@window.close
+            exit
+          end
         end
       end
       i += 1
+      puts i if DEBUG
     end
+  end
+
+  @@window = SF::RenderWindow.new(SF::VideoMode.new(@@width, @@height), "Arcaea Inspector", @@style)
+
+  @@window.active = false
+
+  if @@fps_limit > 0
+    @@window.framerate_limit = @@fps_limit
+  end
+
+  if @@vsync
+    @@window.vertical_sync_enabled = true
   end
 
   objs = Array(SF::Drawable).new
 
   @@font = SF::Font.from_file "resources/NotoSansCJKsc-Light.otf"
 
-  @@arrow = SF::Text.new "", @@font
+  @@arrow = SF::Text.new "v", @@font
   @@arrow.color = SF::Color::White
   @@arrow.character_size = 20
   @@arrow.origin = SF.vector2f @@arrow.local_bounds.width / 2, @@arrow.local_bounds.height / 2
@@ -179,6 +189,7 @@ module ArcaeaInspector
     SF.vector2f(
       @@window.size.x / 2,
       @@window.size.y - @@window.size.y / 5 + 5 * 20)
+  @@arrow.string = ""
 
   @@txts = Array(SF::Text).new
   @@txta = SF::Text.new "", @@font
@@ -209,16 +220,22 @@ module ArcaeaInspector
 
   def ArcaeaInspector.show_arrow
     @@arrow.string = "v"
+    lb = @@arrow.local_bounds
+    @@arrow.origin = SF.vector2f lb.left + lb.width / 2, lb.top + lb.height / 2
+    @@arrow.position = SF.vector2f(
+      @@window.size.x / 2,
+      @@arrow.position.y
+    )
     @@waiting_for_next = true
   end
 
   def ArcaeaInspector.update_txt(new_text : String, line_num : Int32)
     tx = @@txts[line_num]
-    lb = tx.local_bounds
     tx.string = new_text
+    lb = tx.local_bounds
     tx.origin = SF.vector2f lb.left + lb.width / 2, lb.top + lb.height / 2
     tx.position = SF.vector2f(
-      @@window.size.x / 2 - lb.width / 2,
+      @@window.size.x / 2,
       @@window.size.y - @@window.size.y / 5 + line_num * 20)
   end
 
@@ -241,6 +258,7 @@ module ArcaeaInspector
       end
       @@window.display
     end
+    @@window.close
     exit
   end
   ).launch

@@ -1,0 +1,3 @@
+quote = "\\\"\\\""
+
+puts quote

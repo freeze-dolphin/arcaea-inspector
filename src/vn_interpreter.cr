@@ -22,7 +22,7 @@ module VNInterp
   end
 
   class VNInterp::Transition
-    def initialize(duration : Float64, curve : VNInterp::Curve)
+    def initialize(duration : Float32, curve : VNInterp::Curve)
       @@duration = duration
       @@curve = curve
     end
@@ -37,9 +37,9 @@ module VNInterp
     end
 
     def play(res : String, audio : String,
-             volume : Float64,
+             volume : Float32,
              loop? : Bool = false)
-      puts "play #{audio}"
+      puts "play #{audio}, orig-volume: #{volume}" if @@debug
       if loop?
         @@sound_registry.not_nil!.each do |k, v|
           if v.loop
@@ -47,8 +47,8 @@ module VNInterp
           end
         end
       end
-      buffer = SF::SoundBuffer.from_file(res + File::SEPARATOR_STRING + audio)
-      sound = SF::Sound.new buffer
+      puts "#{res}, volume: #{volume * 100}" if @@debug
+      sound = SF::Sound.new SF::SoundBuffer.from_file(res + File::SEPARATOR_STRING + audio)
       sound.volume = volume * 100
       sound.loop = loop?
       sound.play
@@ -57,17 +57,17 @@ module VNInterp
     end
 
     def volume(audio : String,
-               volFrom : Float64, volTo : Float64)
+               volFrom : Float32, volTo : Float32)
     end
 
     def stop(audio : String,
-             duration : Float64)
+             duration : Float32)
     end
 
     def say(content : Array(String))
       ArcaeaInspector.clear_txt
       return if content.nil? || content.size == 0
-      i = 0
+      i = -1
       content.each do |t|
         SF.sleep SF.seconds 1.5
         i += 1
@@ -78,9 +78,9 @@ module VNInterp
     end
 
     def show(res : String, pic : String,
-             posX : Float64, poxY : Float64,
-             anchorX : Float64, anchorY : Float64,
-             scaleX : Float64, scaleY : Float64,
+             posX : Float32, poxY : Float32,
+             anchorX : Float32, anchorY : Float32,
+             scaleX : Float32, scaleY : Float32,
              transition : VNInterp::Transition,
              superposition : VNInterp::SuperPosition)
     end
@@ -90,21 +90,21 @@ module VNInterp
     end
 
     def move(pic : String,
-             dx : Float64, dy : Float64,
-             duration : Float64,
+             dx : Float32, dy : Float32,
+             duration : Float32,
              curve : VNInterp::Curve)
     end
 
     def scale(pic : String,
-              scaleX : Float64, scaleY : Float64,
-              duration : Float64,
+              scaleX : Float32, scaleY : Float32,
+              duration : Float32,
               curve : VNInterp::Curve)
     end
 
-    def auto(duration : Float64)
+    def auto(duration : Float32)
     end
 
-    def wait(duration : Float64)
+    def wait(duration : Float32)
       SF.sleep SF.seconds duration
     end
   end
