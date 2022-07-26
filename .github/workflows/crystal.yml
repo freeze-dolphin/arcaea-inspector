@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Install packages
-        run: apt update && apt install libsfml-dev --install-recommends -y
+        run: apt update && apt install libsfml-dev build-essential --install-recommends -y
       - name: Install dependencies
         run: shards install
       - name: Code evaluation
