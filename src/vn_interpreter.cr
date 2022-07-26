@@ -39,6 +39,7 @@ module VNInterp
     def play(res : String, audio : String,
              volume : Float64,
              loop? : Bool = false)
+      puts "play #{audio}"
       if loop?
         @@sound_registry.not_nil!.each do |k, v|
           if v.loop
@@ -46,19 +47,13 @@ module VNInterp
           end
         end
       end
-      spawn do
-        buffer = SF::SoundBuffer.from_file(res + File::SEPARATOR_STRING + audio)
-        sound = SF::Sound.new buffer
-        sound.volume = volume * 100
-        sound.loop = loop?
-        sound.play
-        @@sound_registry.not_nil![audio] = sound
-        puts "playing #{audio}; registry: #{@@sound_registry}" if @@debug
-
-        loop do
-          sound.finalize if sound.status == SF::SoundSource::Status::Stopped
-        end
-      end
+      buffer = SF::SoundBuffer.from_file(res + File::SEPARATOR_STRING + audio)
+      sound = SF::Sound.new buffer
+      sound.volume = volume * 100
+      sound.loop = loop?
+      sound.play
+      @@sound_registry.not_nil![audio] = sound
+      puts "playing #{audio}; registry: #{@@sound_registry}" if @@debug
     end
 
     def volume(audio : String,
@@ -70,9 +65,16 @@ module VNInterp
     end
 
     def say(content : Array(String))
+      ArcaeaInspector.clear_txt
+      return if content.nil? || content.size == 0
+      i = 0
       content.each do |t|
-        puts t
+        SF.sleep SF.seconds 1.5
+        i += 1
+        ArcaeaInspector.update_txt t, i
       end
+      SF.sleep SF.seconds 1
+      ArcaeaInspector.show_arrow
     end
 
     def show(res : String, pic : String,

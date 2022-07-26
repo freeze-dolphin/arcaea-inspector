@@ -7,10 +7,10 @@ require "./vn_interpreter"
 module ArcaeaInspector
   DEBUG = true
   @@waiting_for_next = false
-  lowp_mode = false
-  vsync = false
-  fps_limit = -1
-  style = SF::Style::Close
+  @@lowp_mode = false
+  @@vsync = false
+  @@fps_limit = -1
+  @@style = SF::Style::Close
   target = ""
   res = ""
 
@@ -23,12 +23,12 @@ module ArcaeaInspector
     EOF
   end
 
-  totem = Totem.from_file "./config.yaml"
+  @@totem : Totem::Config = Totem.from_file "./config.yaml"
 
-  lowp_mode = totem.get("low_resolution_mode").as_bool
-  vsync = totem.get("low_resolution_mode").as_bool
-  fps_limit = totem.get("fps_limit").as_i
-  style = SF::Style::Fullscreen if totem.get("fullscreen").as_bool
+  @@lowp_mode = @@totem.get("low_resolution_mode").as_bool
+  @@vsync = @@totem.get("low_resolution_mode").as_bool
+  @@fps_limit = @@totem.get("fps_limit").as_i
+  @@style = SF::Style::Fullscreen if @@totem.get("fullscreen").as_bool
 
   OptionParser.parse do |psr|
     psr.banner = "The Arcaea Inspector v0.1.0"
@@ -48,11 +48,11 @@ module ArcaeaInspector
     end
 
     psr.on "-7", "--720p", "Enable low resolution mode" do
-      lowp_mode = true
+      @@lowp_mode = true
     end
 
     psr.on "-s", "--vsync", "Enable vertical sync mode" do
-      vsync = true
+      @@vsync = true
     end
 
     psr.on "-l MAX", "--limit=MAX", "Specify framerate limitation" do |max|
@@ -60,7 +60,7 @@ module ArcaeaInspector
     end
 
     psr.on "-f", "--fullscreen", "Enable fullscreen mode" do
-      style = SF::Style::Fullscreen
+      @@style = SF::Style::Fullscreen
     end
   end
 
@@ -80,47 +80,61 @@ module ArcaeaInspector
     puts "Resource Folder: #{res}"
   end
 
-  width = 1960
-  height = 1080
+  @@width = 1960
+  @@height = 1080
 
-  if lowp_mode
-    width = 1080
-    height = 720
+  if @@lowp_mode
+    @@width = 1080
+    @@height = 720
   end
 
   # window preparation end
 
-  window = SF::RenderWindow.new(SF::VideoMode.new(width, height), "Arcaea Inspector", style)
+  @@window = SF::RenderWindow.new(SF::VideoMode.new(@@width, @@height), "Arcaea Inspector", @@style)
 
-  window.active = false
+  @@window.active = false
 
-  if fps_limit > 0
-    window.framerate_limit = fps_limit
+  if @@fps_limit > 0
+    @@window.framerate_limit = @@fps_limit
   end
 
-  if vsync
-    window.vertical_sync_enabled = true
+  if @@vsync
+    @@window.vertical_sync_enabled = true
+  end
+
+  def ArcaeaInspector.slice_off_quote(s : String)
+    head = s[0, 1]
+    tail = s[s.size - 1, s.size]
+    rst = s
+    if head == "\""
+      rst = rst[1, rst.size]
+    end
+    if tail == "\""
+      rst = rst[0, rst.size - 1]
+    end
+    rst
   end
 
   spawn do
-    int = VNInterp::Interpreter.new window
+    int = VNInterp::Interpreter.new @@window
     commands = ["play", "say", "wait", "auto", "move", "hide", "show", "stop", "volume", "end"]
     splited = (File.read target).split(/(\n| )/, remove_empty: true)
+    puts "before: #{splited}" if DEBUG
     splited << "end"
+    puts "after: #{splited}" if DEBUG
     splited.reject! { |x| x == "\n" || x == " " }
+    puts "ultimate: #{splited}" if DEBUG
     i = 0
     channel = Channel(Nil).new
 
     while i < splited.size
-      if splited[i] == "play"
+      case cmd = splited[i]
+      when "play"
+        puts cmd if DEBUG
         args = [] of String
         j = i + 1
         while !(commands.includes? splited[j])
-          t = splited[j]
-          if t[0, 1] == "\"" && t[-1, t.size - 1] == "\""
-            t = t[1, t.size - 2]
-          end
-          args << t
+          args << slice_off_quote splited[j]
           j += 1
         end
 
@@ -129,48 +143,105 @@ module ArcaeaInspector
           args[0],
           args[1].unsafe_as(Float64),
           args.size < 3 ? false : true)
-      elsif splited[i] == "say"
+      when "say"
+        puts cmd if DEBUG
         args = [] of String
         j = i + 1
         while !(commands.includes? splited[j])
-          t = splited[j]
-          if t[0, 1] == "\"" || t[-1, t.size - 1] == "\""
-            t = t[1, t.size - 2]
-          end
-          args << t
+          args << slice_off_quote splited[j]
           j += 1
         end
+        puts args if DEBUG
 
         loop do
           break if !@@waiting_for_next
         end
         int.say(args)
-        @@waiting_for_next = true
+      when "end"
+        puts cmd if DEBUG
+        loop do
+          exit if !@@waiting_for_next
+        end
       end
       i += 1
     end
   end
 
-  SF::Thread.new(->{
-    font = SF::Font.from_file "resources/NotoSansCJKsc-Light.otf"
-    txt = SF::Text.new "", font
-    x, y = txt.global_bounds.width, txt.global_bounds.height
-    ctr = (SF.vector2f x, y) / 2
-    lb = txt.local_bounds
-    lbv = SF.vector2f lb.left, lb.top
-    # rounded = lb.round
+  objs = Array(SF::Drawable).new
 
-    while window.open?
-      while event = window.poll_event
+  @@font = SF::Font.from_file "resources/NotoSansCJKsc-Light.otf"
+
+  @@arrow = SF::Text.new "", @@font
+  @@arrow.color = SF::Color::White
+  @@arrow.character_size = 20
+  @@arrow.origin = SF.vector2f @@arrow.local_bounds.width / 2, @@arrow.local_bounds.height / 2
+  @@arrow.position =
+    SF.vector2f(
+      @@window.size.x / 2,
+      @@window.size.y - @@window.size.y / 5 + 5 * 20)
+
+  @@txts = Array(SF::Text).new
+  @@txta = SF::Text.new "", @@font
+  @@txta.color = SF::Color::White
+  @@txta.character_size = 18
+  @@txtb = SF::Text.new "", @@font
+  @@txtb.color = SF::Color::White
+  @@txtb.character_size = 18
+  @@txtc = SF::Text.new "", @@font
+  @@txtc.color = SF::Color::White
+  @@txtc.character_size = 18
+
+  @@txts << @@txta
+  @@txts << @@txtb
+  @@txts << @@txtc
+
+  @@txts.each do |t|
+    objs << t
+  end
+  objs << @@arrow
+
+  def ArcaeaInspector.clear_txt
+    @@txts.each do |t|
+      t.string = ""
+    end
+    @@arrow.string = ""
+  end
+
+  def ArcaeaInspector.show_arrow
+    @@arrow.string = "v"
+    @@waiting_for_next = true
+  end
+
+  def ArcaeaInspector.update_txt(new_text : String, line_num : Int32)
+    tx = @@txts[line_num]
+    lb = tx.local_bounds
+    tx.string = new_text
+    tx.origin = SF.vector2f lb.left + lb.width / 2, lb.top + lb.height / 2
+    tx.position = SF.vector2f(
+      @@window.size.x / 2 - lb.width / 2,
+      @@window.size.y - @@window.size.y / 5 + line_num * 20)
+  end
+
+  SF::Thread.new(->do
+    while @@window.open?
+      while event = @@window.poll_event
         case event
         when SF::Event::Closed
-          window.close
+          @@window.close
         when SF::Event::KeyReleased
           if event.code == SF::Keyboard::Space && @@waiting_for_next
             @@waiting_for_next = false
           end
         end
       end
+
+      @@window.clear SF::Color::Black
+      objs.each do |obj|
+        @@window.draw obj
+      end
+      @@window.display
     end
-  }).launch
+    exit
+  end
+  ).launch
 end
