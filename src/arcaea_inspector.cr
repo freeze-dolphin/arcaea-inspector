@@ -46,22 +46,6 @@ module ArcaeaInspector
     psr.on "-o PATH_TO_VNS", "--open PATH_TO_VNS", "Specifiy target" do |path|
       target = path
     end
-
-    psr.on "-7", "--720p", "Enable low resolution mode" do
-      @@lowp_mode = true
-    end
-
-    psr.on "-s", "--vsync", "Enable vertical sync mode" do
-      @@vsync = true
-    end
-
-    psr.on "-l MAX", "--limit=MAX", "Specify framerate limitation" do |max|
-      fps_limit = max.to_i
-    end
-
-    psr.on "-f", "--fullscreen", "Enable fullscreen mode" do
-      @@style = SF::Style::Fullscreen
-    end
   end
 
   if target == "" || !File.exists? target
