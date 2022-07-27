@@ -89,7 +89,7 @@ module VNInterp
       content.each do |t|
         SF.sleep SF.seconds 1.5
         i += 1
-        ArcaeaInspector.update_txt t, i
+        # ArcaeaInspector.update_txt t, i
       end
       SF.sleep SF.seconds 1
       ArcaeaInspector.show_arrow
