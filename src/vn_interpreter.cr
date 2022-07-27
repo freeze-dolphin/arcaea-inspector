@@ -36,14 +36,23 @@ module VNInterp
       @@debug = ArcaeaInspector::DEBUG
     end
 
+    private def update_sound_registry
+      @@sound_registry.not_nil!.each do |k, v|
+        if v.status == SF::SoundSource::Status::Stopped
+          @@sound_registry.not_nil!.delete k
+        end
+      end
+    end
+
     def play(res : String, audio : String,
              volume : Float32,
              loop? : Bool = false)
+      update_sound_registry
       puts "play #{audio}, orig-volume: #{volume}" if @@debug
       if loop?
         @@sound_registry.not_nil!.each do |k, v|
           if v.loop
-            stop(k, 0)
+            stop(k, 1)
           end
         end
       end
@@ -57,7 +66,17 @@ module VNInterp
     end
 
     def volume(audio : String,
-               volFrom : Float32, volTo : Float32)
+               new_volume : Float32, duration : Float32)
+      update_sound_registry
+      sound = @@sound_registry[audio]
+      tv = new_volume * 100
+      spawn do
+        while sound.volume < tv && sound.status == SF::SoundSource::Status::Playing
+          SF.sleep SF.seconds duration / 10
+          sound.volume += tv / 10
+        end
+        update_sound_registry
+      end
     end
 
     def stop(audio : String,
@@ -66,7 +85,6 @@ module VNInterp
 
     def say(content : Array(String))
       ArcaeaInspector.clear_txt
-      return if content.nil? || content.size == 0
       i = -1
       content.each do |t|
         SF.sleep SF.seconds 1.5

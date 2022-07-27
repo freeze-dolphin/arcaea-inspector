@@ -145,7 +145,6 @@ module ArcaeaInspector
         end
       end
       i += 1
-      puts i if DEBUG
     end
   end
 
@@ -175,7 +174,6 @@ module ArcaeaInspector
       @@window.size.y - @@window.size.y / 5 + 5 * 20)
   @@arrow.string = ""
 
-  @@txts = Array(SF::Text).new
   @@txta = SF::Text.new "", @@font
   @@txta.color = SF::Color::White
   @@txta.character_size = 18
@@ -186,19 +184,17 @@ module ArcaeaInspector
   @@txtc.color = SF::Color::White
   @@txtc.character_size = 18
 
-  @@txts << @@txta
-  @@txts << @@txtb
-  @@txts << @@txtc
+  objs << @@txta
+  objs << @@txtb
+  objs << @@txtc
 
-  @@txts.each do |t|
-    objs << t
-  end
   objs << @@arrow
 
   def ArcaeaInspector.clear_txt
-    @@txts.each do |t|
-      t.string = ""
-    end
+    @@txta.string = ""
+    @@txtb.string = ""
+    @@txtc.string = ""
+
     @@arrow.string = ""
   end
 
@@ -214,7 +210,15 @@ module ArcaeaInspector
   end
 
   def ArcaeaInspector.update_txt(new_text : String, line_num : Int32)
-    tx = @@txts[line_num]
+    case line_num
+    when 0
+      tx = @@txta
+    when 1
+      tx = @@txtb
+    when 2
+      tx = @@txtc
+    end
+    tx = tx.not_nil!
     tx.string = new_text
     lb = tx.local_bounds
     tx.origin = SF.vector2f lb.left + lb.width / 2, lb.top + lb.height / 2
